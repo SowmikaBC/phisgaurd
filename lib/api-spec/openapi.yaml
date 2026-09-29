@@ -1,0 +1,320 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Demo account session operations
+  - name: analysis
+    description: URL risk analysis operations
+  - name: dashboard
+    description: Personal security summaries
+  - name: learning
+    description: Awareness and learning operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create a PhishGuard account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Start a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204":
+          description: Session ended
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current session user
+      responses:
+        "200":
+          description: Current user or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+  /analyze:
+    post:
+      operationId: analyzeUrl
+      tags: [analysis]
+      summary: Analyze a URL without visiting it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeInput"
+      responses:
+        "200":
+          description: Explainable risk result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scan"
+        "400":
+          description: Invalid URL
+  /scans:
+    get:
+      operationId: listScans
+      tags: [analysis]
+      summary: List recent scans
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: classification
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, safe, suspicious, high-risk]
+      responses:
+        "200":
+          description: Scan history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Scan"
+    delete:
+      operationId: deleteScan
+      tags: [analysis]
+      summary: Delete a scan
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Scan deleted
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get personal security dashboard statistics
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /quiz/submit:
+    post:
+      operationId: submitQuiz
+      tags: [learning]
+      summary: Submit a completed awareness quiz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuizResultInput"
+      responses:
+        "200":
+          description: Saved quiz result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizResult"
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [auth]
+      summary: Get profile details and scan counts
+      responses:
+        "200":
+          description: Profile summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    User:
+      type: object
+      required: [id, name, email]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+    CurrentUser:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/User"
+            - type: "null"
+    RegisterInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    AnalyzeInput:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, minLength: 1, maxLength: 2048 }
+    ScanFeature:
+      type: object
+      required: [label, value, status, detail]
+      properties:
+        label: { type: string }
+        value: { type: string }
+        status:
+          type: string
+          enum: [positive, caution, danger]
+        detail: { type: string }
+    Scan:
+      type: object
+      required:
+        [id, url, riskScore, classification, prediction, createdAt, riskLevel, features, positiveIndicators, riskIndicators, recommendation]
+      properties:
+        id: { type: string }
+        url: { type: string }
+        riskScore: { type: integer, minimum: 0, maximum: 100 }
+        classification:
+          type: string
+          enum: [safe, suspicious, high-risk]
+        prediction: { type: string }
+        createdAt: { type: string }
+        riskLevel: { type: string }
+        features:
+          type: array
+          items: { $ref: "#/components/schemas/ScanFeature" }
+        positiveIndicators:
+          type: array
+          items: { type: string }
+        riskIndicators:
+          type: array
+          items: { type: string }
+        recommendation: { type: string }
+    Dashboard:
+      type: object
+      required:
+        [totalScans, safeCount, suspiciousCount, highRiskCount, averageRiskScore, recentScans, activity, modelStatus]
+      properties:
+        totalScans: { type: integer }
+        safeCount: { type: integer }
+        suspiciousCount: { type: integer }
+        highRiskCount: { type: integer }
+        averageRiskScore: { type: integer }
+        recentScans:
+          type: array
+          items: { $ref: "#/components/schemas/Scan" }
+        activity:
+          type: array
+          items:
+            type: object
+            required: [label, scans, risk]
+            properties:
+              label: { type: string }
+              scans: { type: integer }
+              risk: { type: integer }
+        modelStatus: { type: string }
+    QuizResultInput:
+      type: object
+      required: [score, totalQuestions, percentage]
+      properties:
+        score: { type: integer, minimum: 0 }
+        totalQuestions: { type: integer, minimum: 1 }
+        percentage: { type: integer, minimum: 0, maximum: 100 }
+    QuizResult:
+      allOf:
+        - $ref: "#/components/schemas/QuizResultInput"
+        - type: object
+          required: [id, createdAt]
+          properties:
+            id: { type: string }
+            createdAt: { type: string }
+    Profile:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [totalScans, safeScans, suspiciousScans, highRiskScans]
+          properties:
+            totalScans: { type: integer }
+            safeScans: { type: integer }
+            suspiciousScans: { type: integer }
+            highRiskScans: { type: integer }
+
